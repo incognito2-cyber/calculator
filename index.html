@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Калькулятор ежедневных накоплений</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            background-color: #f4f6f9;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+            padding: 20px;
+        }
+        .calc-card {
+            background: #fff;
+            padding: 30px;
+            border-radius: 16px;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.05);
+            max-width: 420px;
+            width: 100%;
+        }
+        h3 {
+            margin: 0 0 20px 0;
+            font-size: 1.4rem;
+            color: #1a1a1a;
+            text-align: center;
+        }
+        .input-group {
+            margin-bottom: 18px;
+        }
+        label {
+            display: block;
+            font-weight: 600;
+            margin-bottom: 6px;
+            font-size: 0.9rem;
+            color: #4a5568;
+        }
+        .flex-group {
+            display: flex;
+            gap: 10px;
+        }
+        .flex-group input {
+            flex: 2;
+        }
+        .flex-group select {
+            flex: 1.3;
+        }
+        input, select {
+            width: 100%;
+            padding: 12px;
+            border: 1px solid #cbd5e1;
+            border-radius: 8px;
+            box-sizing: border-box;
+            font-size: 1rem;
+            transition: border-color 0.2s;
+            background-color: #fff;
+        }
+        input:focus, select:focus {
+            outline: none;
+            border-color: #3b82f6;
+        }
+        .results {
+            margin-top: 25px;
+            padding-top: 20px;
+            border-top: 2px dashed #e2e8f0;
+        }
+        .res-row {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 10px;
+            font-size: 0.95rem;
+            color: #4a5568;
+        }
+        .res-row.total {
+            font-weight: bold;
+            font-size: 1.2rem;
+            color: #10b981;
+            margin-top: 15px;
+            padding-top: 5px;
+        }
+    </style>
+</head>
+<body>
+
+<div class="calc-card">
+    <h3>🧮 Калькулятор накоплений</h3>
+    
+    <div class="input-group">
+        <label>Стартовый баланс (манат):</label>
+        <input type="number" id="initialBalance" value="100" step="any" min="0">
+    </div>
+
+    <div class="input-group">
+        <label>Пополнение счета:</label>
+        <div class="flex-group">
+            <input type="number" id="depositValue" value="1" step="any" min="0">
+            <select id="depositPeriod">
+                <option value="daily" selected>в день</option>
+                <option value="monthly">в месяц</option>
+                <option value="yearly">в год</option>
+            </select>
+        </div>
+    </div>
+    
+    <div class="input-group">
+        <label>Годовая ставка (%):</label>
+        <input type="number" id="annualRate" value="7" step="any" min="0">
+    </div>
+    
+    <div class="input-group">
+        <label>Срок накопления:</label>
+        <div class="flex-group">
+            <input type="number" id="durationValue" value="1" min="0">
+            <select id="durationUnit">
+                <option value="years" selected>лет</option>
+                <option value="months">мес.</option>
+                <option value="days">дней</option>
+            </select>
+        </div>
+    </div>
+
+    <div class="input-group">
+        <label>Капитализация процентов каждые:</label>
+        <div class="flex-group">
+            <input type="number" id="compoundingValue" value="1" min="1">
+            <select id="compoundingUnit">
+                <option value="days">дней</option>
+                <option value="months" selected>мес.</option>
+                <option value="years">лет</option>
+            </select>
+        </div>
+    </div>
+
+    <div class="results">
+        <div class="res-row">
+            <span>Ваши чистые вложения:</span>
+            <span id="resInvested">0.00 AZN</span>
+        </div>
+        <div class="res-row">
+            <span>Начисленные проценты:</span>
+            <span id="resInterest">0.00 AZN</span>
+        </div>
+        <div class="res-row total">
+            <span>Итого на счету:</span>
+            <span id="resTotal">0.00 AZN</span>
+        </div>
+    </div>
+</div>
+
+<script>
+function calculate() {
+    let init = Math.max(0, parseFloat(document.getElementById('initialBalance').value) || 0);
+    let p = Math.max(0, parseFloat(document.getElementById('depositValue').value) || 0);
+    let depositPeriod = document.getElementById('depositPeriod').value;
+    let annualRatePercent = Math.max(0, parseFloat(document.getElementById('annualRate').value) || 0);
+    
+    let durationValue = Math.max(0, parseFloat(document.getElementById('durationValue').value) || 0);
+    let durationUnit = document.getElementById('durationUnit').value;
+    
+    let compoundingValue = Math.max(1, parseInt(document.getElementById('compoundingValue').value) || 1);
+    let compoundingUnit = document.getElementById('compoundingUnit').value;
+    
+    // 1. Переводим срок накопления в общие дни
+    let d = 0;
+    if (durationUnit === 'years') {
+        d = Math.round(durationValue * 365);
+    } else if (durationUnit === 'months') {
+        d = Math.round(durationValue * 30);
+    } else {
+        d = Math.round(durationValue);
+    }
+    
+    // 2. Переводим шаг капитализации в дни
+    let compDays = 1;
+    if (compoundingUnit === 'years') {
+        compDays = Math.round(compoundingValue * 365);
+    } else if (compoundingUnit === 'months') {
+        compDays = Math.round(compoundingValue * 30);
+    } else {
+        compDays = compoundingValue;
+    }
+    
+    let total = init; 
+    let invested = init; 
+    let accumulatedInterest = 0; 
+    
+    let rDaily = (annualRatePercent / 100) / 365;
+
+    for (let i = 1; i <= d; i++) {
+        // Внесение периодических пополнений
+        if (depositPeriod === 'daily') {
+            total += p;
+            invested += p;
+        } else if (depositPeriod === 'monthly' && (i === 1 || (i - 1) % 30 === 0)) {
+            total += p;
+            invested += p;
+        } else if (depositPeriod === 'yearly' && (i === 1 || (i - 1) % 365 === 0)) {
+            total += p;
+            invested += p;
+        }
+        
+        // Посуточное начисление процентов во временный буфер
+        let interestToday = total * rDaily;
+        accumulatedInterest += interestToday;
+        
+        // Капитализация: переносим проценты на основной счет строго по заданному интервалу дней
+        if (i % compDays === 0) {
+            total += accumulatedInterest;
+            accumulatedInterest = 0; 
+        }
+    }
+    
+    // Причисляем остаток процентов, если срок закончился посреди периода капитализации
+    total += accumulatedInterest;
+    
+    let interestEarned = total - invested;
+    
+    const formatConfig = { minimumFractionDigits: 2, maximumFractionDigits: 2 };
+    document.getElementById('resInvested').innerText = invested.toLocaleString('ru-RU', formatConfig) + ' AZN';
+    document.getElementById('resInterest').innerText = interestEarned.toLocaleString('ru-RU', formatConfig) + ' AZN';
+    document.getElementById('resTotal').innerText = total.toLocaleString('ru-RU', formatConfig) + ' AZN';
+}
+
+// Отслеживание изменений на всех инпутах и селектах формы
+document.querySelectorAll('input, select').forEach(element => {
+    element.addEventListener('input', calculate);
+});
+
+document.addEventListener('DOMContentLoaded', calculate);
+</script>
+
+</body>
+</html>
