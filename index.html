@@ -128,8 +128,8 @@
         <div class="flex-group">
             <input type="number" id="compoundingValue" value="1" min="1">
             <select id="compoundingUnit">
-                <option value="days">дней</option>
-                <option value="months" selected>мес.</option>
+                <option value="days" selected>дней</option>
+                <option value="months">мес.</option>
                 <option value="years">лет</option>
             </select>
         </div>
@@ -153,71 +153,66 @@
 
 <script>
 function calculate() {
-    let init = Math.max(0, parseFloat(document.getElementById('initialBalance').value) || 0);
-    let p = Math.max(0, parseFloat(document.getElementById('depositValue').value) || 0);
-    let depositPeriod = document.getElementById('depositPeriod').value;
-    let annualRatePercent = Math.max(0, parseFloat(document.getElementById('annualRate').value) || 0);
+    const init = Math.max(0, parseFloat(document.getElementById('initialBalance').value) || 0);
+    const p = Math.max(0, parseFloat(document.getElementById('depositValue').value) || 0);
+    const depositPeriod = document.getElementById('depositPeriod').value;
+    const annualRatePercent = Math.max(0, parseFloat(document.getElementById('annualRate').value) || 0);
     
-    let durationValue = Math.max(0, parseFloat(document.getElementById('durationValue').value) || 0);
-    let durationUnit = document.getElementById('durationUnit').value;
+    const durationValue = Math.max(0, parseFloat(document.getElementById('durationValue').value) || 0);
+    const durationUnit = document.getElementById('durationUnit').value;
     
-    let compoundingValue = Math.max(1, parseInt(document.getElementById('compoundingValue').value) || 1);
-    let compoundingUnit = document.getElementById('compoundingUnit').value;
+    const compoundingValue = Math.max(1, parseInt(document.getElementById('compoundingValue').value) || 1);
+    const compoundingUnit = document.getElementById('compoundingUnit').value;
     
-    // 1. Переводим срок накопления в общие дни
-    let d = 0;
-    if (durationUnit === 'years') {
-        d = Math.round(durationValue * 365);
-    } else if (durationUnit === 'months') {
-        d = Math.round(durationValue * 30);
-    } else {
-        d = Math.round(durationValue);
-    }
+    // 1. Срок накопления в днях
+    let totalDays = 0;
+    if (durationUnit === 'years') totalDays = Math.round(durationValue * 365);
+    else if (durationUnit === 'months') totalDays = Math.round(durationValue * 30.416);
+    else totalDays = Math.round(durationValue);
     
-    // 2. Переводим шаг капитализации в дни
+    // 2. Шаг капитализации в днях
     let compDays = 1;
-    if (compoundingUnit === 'years') {
-        compDays = Math.round(compoundingValue * 365);
-    } else if (compoundingUnit === 'months') {
-        compDays = Math.round(compoundingValue * 30);
-    } else {
-        compDays = compoundingValue;
-    }
+    if (compoundingUnit === 'years') compDays = Math.round(compoundingValue * 365);
+    else if (compoundingUnit === 'months') compDays = Math.round(compoundingValue * 30.416);
+    else compDays = compoundingValue;
+
+    // Шаг пополнений в днях
+    let depositDays = 1;
+    if (depositPeriod === 'monthly') depositDays = 30.416;
+    if (depositPeriod === 'yearly') depositDays = 365;
     
     let total = init; 
     let invested = init; 
     let accumulatedInterest = 0; 
     
-    let rDaily = (annualRatePercent / 100) / 365;
+    const rDaily = (annualRatePercent / 100) / 365;
+    let nextDepositDay = depositDays;
 
-    for (let i = 1; i <= d; i++) {
-        // Внесение периодических пополнений
+    for (let i = 1; i <= totalDays; i++) {
+        // Логика внесения пополнений
         if (depositPeriod === 'daily') {
             total += p;
             invested += p;
-        } else if (depositPeriod === 'monthly' && (i === 1 || (i - 1) % 30 === 0)) {
+        } else if (i >= Math.round(nextDepositDay)) {
             total += p;
             invested += p;
-        } else if (depositPeriod === 'yearly' && (i === 1 || (i - 1) % 365 === 0)) {
-            total += p;
-            invested += p;
+            nextDepositDay += depositDays;
         }
         
-        // Посуточное начисление процентов во временный буфер
+        // Начисление процентов на текущий баланс дня
         let interestToday = total * rDaily;
         accumulatedInterest += interestToday;
         
-        // Капитализация: переносим проценты на основной счет строго по заданному интервалу дней
+        // Капитализация процентов
         if (i % compDays === 0) {
             total += accumulatedInterest;
             accumulatedInterest = 0; 
         }
     }
     
-    // Причисляем остаток процентов, если срок закончился посреди периода капитализации
+    // Добавляем оставшийся "хвост" процентов в конце срока
     total += accumulatedInterest;
-    
-    let interestEarned = total - invested;
+    const interestEarned = Math.max(0, total - invested);
     
     const formatConfig = { minimumFractionDigits: 2, maximumFractionDigits: 2 };
     document.getElementById('resInvested').innerText = invested.toLocaleString('ru-RU', formatConfig) + ' AZN';
@@ -225,11 +220,12 @@ function calculate() {
     document.getElementById('resTotal').innerText = total.toLocaleString('ru-RU', formatConfig) + ' AZN';
 }
 
-// Отслеживание изменений на всех инпутах и селектах формы
+// Отслеживание изменений «на лету»
 document.querySelectorAll('input, select').forEach(element => {
     element.addEventListener('input', calculate);
 });
 
+// Автоматический старт расчёта при открытии страницы
 document.addEventListener('DOMContentLoaded', calculate);
 </script>
 
