@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Калькулятор ежедневных накоплений</title>
+    <title>Калькулятор накоплений</title>
     <style>
         body {
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
@@ -128,8 +128,8 @@
         <div class="flex-group">
             <input type="number" id="compoundingValue" value="1" min="1">
             <select id="compoundingUnit">
-                <option value="days" selected>дней</option>
-                <option value="months">мес.</option>
+                <option value="days">дней</option>
+                <option value="months" selected>мес.</option>
                 <option value="years">лет</option>
             </select>
         </div>
@@ -164,7 +164,7 @@ function calculate() {
     const compoundingValue = Math.max(1, parseInt(document.getElementById('compoundingValue').value) || 1);
     const compoundingUnit = document.getElementById('compoundingUnit').value;
     
-    // 1. Срок накопления в днях
+    // 1. Приведение срока к дням
     let totalDays = 0;
     if (durationUnit === 'years') totalDays = Math.round(durationValue * 365);
     else if (durationUnit === 'months') totalDays = Math.round(durationValue * 30.416);
@@ -176,7 +176,7 @@ function calculate() {
     else if (compoundingUnit === 'months') compDays = Math.round(compoundingValue * 30.416);
     else compDays = compoundingValue;
 
-    // Шаг пополнений в днях
+    // 3. Шаг пополнений в днях
     let depositDays = 1;
     if (depositPeriod === 'monthly') depositDays = 30.416;
     if (depositPeriod === 'yearly') depositDays = 365;
@@ -186,31 +186,39 @@ function calculate() {
     let accumulatedInterest = 0; 
     
     const rDaily = (annualRatePercent / 100) / 365;
-    let nextDepositDay = depositDays;
+    
+    // Счётчики для точного отслеживания дробных дней
+    let depositTracker = 0;
+    let compTracker = 0;
 
     for (let i = 1; i <= totalDays; i++) {
-        // Логика внесения пополнений
-        if (depositPeriod === 'daily') {
-            total += p;
-            invested += p;
-        } else if (i >= Math.round(nextDepositDay)) {
-            total += p;
-            invested += p;
-            nextDepositDay += depositDays;
-        }
-        
-        // Начисление процентов на текущий баланс дня
+        // Начисление процентов на баланс НА НАЧАЛО дня
         let interestToday = total * rDaily;
         accumulatedInterest += interestToday;
         
+        // Логика внесения регулярных пополнений
+        if (depositPeriod === 'daily') {
+            total += p;
+            invested += p;
+        } else {
+            depositTracker += 1;
+            if (depositTracker >= depositDays) {
+                total += p;
+                invested += p;
+                depositTracker -= depositDays; // Сохраняем дробный остаток для точности
+            }
+        }
+        
         // Капитализация процентов
-        if (i % compDays === 0) {
+        compTracker += 1;
+        if (compTracker >= compDays) {
             total += accumulatedInterest;
             accumulatedInterest = 0; 
+            compTracker -= compDays;
         }
     }
     
-    // Добавляем оставшийся "хвост" процентов в конце срока
+    // Прибавляем оставшиеся проценты, которые не успели капитализироваться
     total += accumulatedInterest;
     const interestEarned = Math.max(0, total - invested);
     
@@ -220,12 +228,10 @@ function calculate() {
     document.getElementById('resTotal').innerText = total.toLocaleString('ru-RU', formatConfig) + ' AZN';
 }
 
-// Отслеживание изменений «на лету»
 document.querySelectorAll('input, select').forEach(element => {
     element.addEventListener('input', calculate);
 });
 
-// Автоматический старт расчёта при открытии страницы
 document.addEventListener('DOMContentLoaded', calculate);
 </script>
 
